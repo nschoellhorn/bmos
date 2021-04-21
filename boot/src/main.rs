@@ -8,7 +8,7 @@ pub fn main() {
 
     // new code below
 
-    let kernel_binary = Path::new("target/x86_64-tos/debug/tos2")
+    let kernel_binary = Path::new("target/x86_64-bmos/debug/bmos")
         .canonicalize()
         .unwrap();
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));

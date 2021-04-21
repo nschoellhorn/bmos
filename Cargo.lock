@@ -15,6 +15,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
+name = "bmos"
+version = "0.1.0"
+dependencies = [
+ "bootloader",
+ "lazy_static",
+ "psf",
+ "rlibc",
+ "spin 0.9.0",
+ "uart_16550",
+ "volatile 0.2.7",
+ "x86_64 0.14.0",
+]
+
+[[package]]
 name = "boot"
 version = "0.1.0"
 dependencies = [
@@ -90,20 +104,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b87bbf98cb81332a56c1ee8929845836f85e8ddd693157c30d76660196014478"
 dependencies = [
  "lock_api",
-]
-
-[[package]]
-name = "tos2"
-version = "0.1.0"
-dependencies = [
- "bootloader",
- "lazy_static",
- "psf",
- "rlibc",
- "spin 0.9.0",
- "uart_16550",
- "volatile 0.2.7",
- "x86_64 0.14.0",
 ]
 
 [[package]]

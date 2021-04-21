@@ -1,5 +1,5 @@
 [package]
-name = "tos2"
+name = "bmos"
 version = "0.1.0"
 authors = ["Niklas Schoellhorn <schoellhorn.niklas@gmail.com>"]
 edition = "2018"
