@@ -15,26 +15,28 @@ mod graphics;
 mod serial;
 #[macro_use]
 mod vga_buffer;
+mod gdt;
 
 use crate::graphics::psf2_t;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
+        idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.double_fault.set_handler_fn(double_fault_handler);
         idt
     };
 }
 
+const FONT: &'static [u8] = include_bytes!("../font.psf");
+
 entry_point!(kernel_main);
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
+    gdt::init();
     debug!("test");
     IDT.load();
-    debug!(
-        "interrupts: {}",
-        x86_64::instructions::interrupts::are_enabled()
-    );
+
     // First, set up basic graphics and a console to make sure we can print debug stuff
     if let bootloader::boot_info::Optional::None = boot_info.framebuffer {
         panic!("No framebuffer found! This is a problem.");
@@ -46,17 +48,42 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         height: boot_fb.info().vertical_resolution as u32,
     };
 
+    let font = match psf::Font::parse_font_data(FONT) {
+        Err(error) => panic!("Failed to parse font data: {:?}", error),
+        Ok(font) => {
+            debug!("Parsed PSF font: {:?}", &font);
+            font
+        }
+    };
+
+    {
+        let mut framebuffer = framebuffer.lock();
+        framebuffer.clear();
+        framebuffer.draw_rect(100, 100, 100, 100, 0x6441A4);
+    }
+
+    let mut console = console::Console::init(&graphics_settings, &framebuffer, &font);
+    console.println("Hello");
+    console.println("World");
+
     loop {
         //println!("Tick");
         unsafe { asm!("hlt") };
     }
 }
 
+extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
+}
+
 extern "x86-interrupt" fn double_fault_handler(
     stack_frame: InterruptStackFrame,
-    _error_code: u64,
+    error_code: u64,
 ) -> ! {
-    panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
+    panic!(
+        "EXCEPTION: DOUBLE FAULT, Error Code: {}\n{:#?}",
+        error_code, stack_frame
+    );
 }
 
 #[panic_handler]

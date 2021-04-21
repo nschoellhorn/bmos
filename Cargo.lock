@@ -24,6 +24,8 @@ dependencies = [
 [[package]]
 name = "bootloader"
 version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "587d4b87e0d9fff4af6a5be6c4033bcfb9fbdb03e920a80e088bc9389e2d4d27"
 
 [[package]]
 name = "bootloader-locator"
@@ -59,6 +61,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "psf"
+version = "0.2.0"
+source = "git+https://github.com/nschoellhorn/psf?branch=feature/nostd#6c0e0f02d66e93075e6575fc53633647b8dd021a"
+
+[[package]]
 name = "rlibc"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -91,6 +98,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader",
  "lazy_static",
+ "psf",
  "rlibc",
  "spin 0.9.0",
  "uart_16550",
