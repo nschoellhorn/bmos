@@ -1,6 +1,4 @@
 use bootloader::boot_info::FrameBuffer as BootFrameBuffer;
-use bootloader::BootInfo;
-use spin::Mutex;
 
 pub struct GraphicsSettings {
     pub width: u32,

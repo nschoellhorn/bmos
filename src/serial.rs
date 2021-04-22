@@ -37,6 +37,7 @@ impl fmt::Write for SerialLine {
 #[doc(hidden)]
 pub fn _debug(args: fmt::Arguments) {
     use core::fmt::Write;
-    SERIAL.lock().write_fmt(args).unwrap();
-    SERIAL.lock().write_str("\n").unwrap();
+    let mut serial = SERIAL.lock();
+    serial.write_fmt(args).unwrap();
+    serial.write_str("\n").unwrap();
 }
