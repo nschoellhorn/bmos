@@ -29,6 +29,7 @@ const FONT: &'static [u8] = include_bytes!("../font.psf");
 entry_point!(kernel_main);
 
 static mut HANDLER: Option<ConsoleOutHandler<'static>> = None;
+static mut SERIAL_OUT_HANDLER: Option<SerialOutHandler> = None;
 static mut GRAPHICS_SETTINGS: Option<GraphicsSettings> = None;
 static mut FRAMEBUFFER: Option<Mutex<Framebuffer>> = None;
 static mut BASE_FONT: Option<Font> = None;
@@ -67,19 +68,29 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             BASE_FONT.as_ref().unwrap(),
         )));
 
-        let keyboard_handler = ConsoleOutHandler {
+        let console_keyboard_handler = ConsoleOutHandler {
             console: CONSOLE.as_ref().unwrap(),
         };
-        HANDLER = Some(keyboard_handler);
+        let serial_keyboard_handler = SerialOutHandler;
+        SERIAL_OUT_HANDLER = Some(serial_keyboard_handler);
+        HANDLER = Some(console_keyboard_handler);
 
-        KEYBOARD_REGISTRY
-            .as_mut()
-            .unwrap()
-            .register(HANDLER.as_ref().unwrap());
+        let registry = KEYBOARD_REGISTRY.as_mut().unwrap();
+
+        registry.register(HANDLER.as_ref().unwrap());
+        registry.register(SERIAL_OUT_HANDLER.as_ref().unwrap());
     };
 
     loop {
         x86_64::instructions::hlt();
+    }
+}
+
+struct SerialOutHandler;
+
+impl KeyboardHandler for SerialOutHandler {
+    fn handle_key_event(&self, event: KeyEvent) {
+        debug!("Key pressed: {:?}", event);
     }
 }
 

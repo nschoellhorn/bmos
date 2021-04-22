@@ -27,7 +27,7 @@ impl<'a> KeyboardEventRegistry<'a> {
         }
     }
 
-    pub fn register(&'a mut self, handler: Handler<'a>) -> Result<(), RegistryError> {
+    pub fn register(&mut self, handler: Handler<'a>) -> Result<(), RegistryError> {
         let empty_slot = self
             .handlers
             .iter()
@@ -43,7 +43,7 @@ impl<'a> KeyboardEventRegistry<'a> {
         }
     }
 
-    pub fn dispatch_event(&'a self, event: KeyEvent) {
+    pub fn dispatch_event(&self, event: KeyEvent) {
         self.handlers
             .iter()
             .enumerate()
