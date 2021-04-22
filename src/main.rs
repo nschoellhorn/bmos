@@ -9,11 +9,9 @@ use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use graphics::{Framebuffer, GraphicsSettings};
 use keyboard::KeyEvent;
-use lazy_static::lazy_static;
 use pc_keyboard::DecodedKey;
 use psf::Font;
 use spin::Mutex;
-use x86_64::structures::paging::frame;
 
 mod console;
 mod graphics;

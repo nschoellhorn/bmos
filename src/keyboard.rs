@@ -1,8 +1,5 @@
-use crate::console::Console;
 use crate::debug;
-use lazy_static::lazy_static;
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
-use spin::Mutex;
 
 type Handler<'a> = &'a (dyn KeyboardHandler + Send + Sync);
 

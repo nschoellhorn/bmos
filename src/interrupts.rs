@@ -1,9 +1,4 @@
-use core::iter::Scan;
-
-use crate::{
-    debug,
-    keyboard::{KeyEvent, KEYBOARD_REGISTRY},
-};
+use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
 use lazy_static::lazy_static;
 use pc_keyboard::layouts::Us104Key;
 use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};

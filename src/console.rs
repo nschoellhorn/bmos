@@ -45,7 +45,7 @@ impl<'a> Console<'a> {
         unsafe {
             Self {
                 char_width: (gfx_settings.width / (font.width() as u32 + 1)),
-                char_height: (gfx_settings.height / (font.height() as u32 + 1)),
+                char_height: (gfx_settings.height / font.height() as u32),
                 graphics: gfx_settings,
                 font,
                 framebuffer,
@@ -70,6 +70,15 @@ impl<'a> Console<'a> {
         if s == '\n' {
             self.cursor.row += 1;
             self.cursor.column = 0;
+
+            if self.cursor.row >= self.char_height {
+                // In case we reached the screen height, we just clear the buffer and start over,
+                // because we don't have a buffer that saves the printed lines, so scrolling is
+                // currently not possible since we can't repaint without said buffer.
+                framebuffer.clear();
+                self.cursor.column = 0;
+                self.cursor.row = 0;
+            }
             return;
         }
         unsafe {
@@ -109,7 +118,7 @@ impl<'a> Console<'a> {
                         }
                     }
                     framebuffer.draw_pixel(
-                        (self.font.width() as u32 * kx) + x,
+                        ((self.font.width() as u32 + 1) * kx) + x,
                         (self.font.height() as u32 * ky) + y,
                         target_value,
                     );
