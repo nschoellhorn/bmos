@@ -45,6 +45,7 @@ impl Framebuffer {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct CursorPosition {
     pub column: u32,
     pub row: u32,

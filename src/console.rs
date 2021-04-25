@@ -6,6 +6,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 use pc_keyboard::DecodedKey;
+use pc_keyboard::KeyCode;
+use pc_keyboard::KeyState;
 use psf::Font;
 use spin::Mutex;
 
@@ -169,16 +171,44 @@ impl<'a> Console<'a> {
 
         cursor.column += 1;
     }
+
+    fn move_cursor_left(&self) {
+        let lock = self.cursor.lock();
+        let mut cursor = lock.borrow_mut();
+        if cursor.column == self.width - 1 {
+            return;
+        }
+
+        cursor.column -= 1;
+    }
 }
 
 impl<'a> KeyboardHandler for Console<'a> {
     fn handle_key_event(&self, event: KeyEvent) {
+        let lock = self.cursor.lock();
+        let cursor = *lock.borrow();
+        drop(cursor);
+        drop(lock);
+
+        match (event.key_code(), event.key_state()) {
+            (KeyCode::Backspace, KeyState::Down) => {
+                let mut screen_buffer = self.screen_buffer.lock();
+                let mut current_row = screen_buffer.get_mut(cursor.row as usize).unwrap();
+
+                current_row[cursor.column as usize - 1] = None;
+
+                drop(screen_buffer);
+
+                self.move_cursor_left();
+                self.redraw_screen();
+
+                return;
+            }
+            _ => {}
+        }
+
         if let Some(DecodedKey::Unicode(key)) = event.decoded_key() {
-            let lock = self.cursor.lock();
-            let cursor = lock.borrow();
             self.put_char(key, cursor.column, cursor.row);
-            drop(cursor);
-            drop(lock);
             self.move_cursor_right();
             self.redraw_screen();
         }
