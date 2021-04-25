@@ -7,12 +7,10 @@
 extern crate alloc;
 
 use crate::console::Console;
-use crate::keyboard::{KeyboardHandler, KEYBOARD_REGISTRY};
+use crate::keyboard::KEYBOARD_REGISTRY;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use graphics::{Framebuffer, GraphicsSettings};
-use keyboard::KeyEvent;
-use pc_keyboard::DecodedKey;
 use psf::Font;
 use spin::Mutex;
 
@@ -28,11 +26,10 @@ const FONT: &'static [u8] = include_bytes!("../font.psf");
 
 entry_point!(kernel_main);
 
-static mut HANDLER: Option<ConsoleOutHandler<'static>> = None;
 static mut GRAPHICS_SETTINGS: Option<GraphicsSettings> = None;
 static mut FRAMEBUFFER: Option<Mutex<Framebuffer>> = None;
 static mut BASE_FONT: Option<Font> = None;
-static mut CONSOLE: Option<Mutex<Console<'static>>> = None;
+static mut CONSOLE: Option<Console<'static>> = None;
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();
@@ -65,36 +62,19 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             }
         });
 
-        CONSOLE = Some(Mutex::new(console::Console::init(
+        CONSOLE = Some(console::Console::init(
             GRAPHICS_SETTINGS.as_ref().unwrap(),
             FRAMEBUFFER.as_ref().unwrap(),
             BASE_FONT.as_ref().unwrap(),
-        )));
-
-        let console_keyboard_handler = ConsoleOutHandler {
-            console: CONSOLE.as_ref().unwrap(),
-        };
-        HANDLER = Some(console_keyboard_handler);
+        ));
 
         let registry = KEYBOARD_REGISTRY.as_mut().unwrap();
 
-        registry.register(HANDLER.as_ref().unwrap());
+        registry.register(CONSOLE.as_mut().unwrap());
     };
 
     loop {
         x86_64::instructions::hlt();
-    }
-}
-
-struct ConsoleOutHandler<'a> {
-    console: &'a Mutex<Console<'a>>,
-}
-
-impl<'a> KeyboardHandler for ConsoleOutHandler<'a> {
-    fn handle_key_event(&self, event: KeyEvent) {
-        if let Some(DecodedKey::Unicode(key)) = event.decoded_key() {
-            self.console.lock().put_char(key, 0xff0000);
-        }
     }
 }
 

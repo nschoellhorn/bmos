@@ -1,6 +1,4 @@
 use crate::debug;
-use alloc::boxed::Box;
-use alloc::vec;
 use bootloader::boot_info::{MemoryRegion, MemoryRegionKind, MemoryRegions};
 use linked_list_allocator::LockedHeap;
 use x86_64::structures::paging::page_table::PageTableFlags;

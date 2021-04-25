@@ -46,10 +46,7 @@ impl<'a> KeyboardEventRegistry<'a> {
             .enumerate()
             .filter(|(_, handler)| handler.is_some())
             .map(|(slot, handler_option)| (slot, handler_option.unwrap()))
-            .for_each(|(slot, handler)| {
-                debug!("Dispatching event to handler in slot {}", slot);
-                handler.handle_key_event(event)
-            });
+            .for_each(|(slot, handler)| handler.handle_key_event(event));
     }
 }
 
