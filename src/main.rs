@@ -2,6 +2,9 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 #![feature(asm)]
+#![feature(default_alloc_error_handler)]
+
+extern crate alloc;
 
 use crate::console::Console;
 use crate::keyboard::{KeyboardHandler, KEYBOARD_REGISTRY};
@@ -14,20 +17,18 @@ use psf::Font;
 use spin::Mutex;
 
 mod console;
-mod graphics;
-mod serial;
-#[macro_use]
-mod vga_buffer;
 mod gdt;
+mod graphics;
 mod interrupts;
 mod keyboard;
+mod memory;
+mod serial;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
 
 entry_point!(kernel_main);
 
 static mut HANDLER: Option<ConsoleOutHandler<'static>> = None;
-static mut SERIAL_OUT_HANDLER: Option<SerialOutHandler> = None;
 static mut GRAPHICS_SETTINGS: Option<GraphicsSettings> = None;
 static mut FRAMEBUFFER: Option<Mutex<Framebuffer>> = None;
 static mut BASE_FONT: Option<Font> = None;
@@ -37,6 +38,10 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();
     interrupts::init();
     keyboard::init();
+    memory::init(
+        &boot_info.memory_regions,
+        boot_info.physical_memory_offset.into_option().unwrap(),
+    );
 
     // First, set up basic graphics and a console to make sure we can print debug stuff
     if let bootloader::boot_info::Optional::None = boot_info.framebuffer {
@@ -69,26 +74,15 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         let console_keyboard_handler = ConsoleOutHandler {
             console: CONSOLE.as_ref().unwrap(),
         };
-        let serial_keyboard_handler = SerialOutHandler;
-        SERIAL_OUT_HANDLER = Some(serial_keyboard_handler);
         HANDLER = Some(console_keyboard_handler);
 
         let registry = KEYBOARD_REGISTRY.as_mut().unwrap();
 
         registry.register(HANDLER.as_ref().unwrap());
-        registry.register(SERIAL_OUT_HANDLER.as_ref().unwrap());
     };
 
     loop {
         x86_64::instructions::hlt();
-    }
-}
-
-struct SerialOutHandler;
-
-impl KeyboardHandler for SerialOutHandler {
-    fn handle_key_event(&self, event: KeyEvent) {
-        debug!("Key pressed: {:?}", event);
     }
 }
 
