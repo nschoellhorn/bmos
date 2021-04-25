@@ -204,6 +204,14 @@ impl<'a> KeyboardHandler for Console<'a> {
 
                 return;
             }
+            (KeyCode::ArrowLeft, KeyState::Down) => {
+                self.move_cursor_left();
+                self.redraw_screen();
+            }
+            (KeyCode::ArrowRight, KeyState::Down) => {
+                self.move_cursor_right();
+                self.redraw_screen();
+            }
             _ => {}
         }
 
