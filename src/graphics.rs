@@ -65,12 +65,6 @@ impl Framebuffer {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct CursorPosition {
-    pub column: u32,
-    pub row: u32,
-}
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct psf2_t {

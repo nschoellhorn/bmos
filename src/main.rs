@@ -8,6 +8,7 @@ extern crate alloc;
 
 use crate::console::Console;
 use crate::keyboard::KEYBOARD_REGISTRY;
+use crate::terminal::Terminal;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use graphics::{Framebuffer, GraphicsSettings};
@@ -21,6 +22,7 @@ mod interrupts;
 mod keyboard;
 mod memory;
 mod serial;
+mod terminal;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
 
@@ -30,6 +32,7 @@ static mut GRAPHICS_SETTINGS: Option<GraphicsSettings> = None;
 static mut FRAMEBUFFER: Option<Mutex<Framebuffer>> = None;
 static mut BASE_FONT: Option<Font> = None;
 static mut CONSOLE: Option<Console<'static>> = None;
+static mut TERMINAL: Option<Terminal<'static>> = None;
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();
@@ -62,15 +65,17 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             }
         });
 
-        CONSOLE = Some(console::Console::init(
+        CONSOLE = Some(Console::init(
             GRAPHICS_SETTINGS.as_ref().unwrap(),
             FRAMEBUFFER.as_ref().unwrap(),
             BASE_FONT.as_ref().unwrap(),
         ));
 
+        TERMINAL = Some(Terminal::new(CONSOLE.as_ref().unwrap()));
+
         let registry = KEYBOARD_REGISTRY.as_mut().unwrap();
 
-        registry.register(CONSOLE.as_mut().unwrap());
+        registry.register(TERMINAL.as_mut().unwrap());
     };
 
     loop {
