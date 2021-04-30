@@ -18,7 +18,7 @@ use x86_64::{structures::paging::mapper::Mapper, PhysAddr};
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 static HEAP_START: u64 = 0x_0000_1337_1337;
-static HEAP_SIZE: u64 = 1024 * 1024;
+static HEAP_SIZE: u64 = 8192 * 1024; // 8 Megabytes of heap memory for the kernel
 
 pub fn init(memory: &MemoryRegions, memory_offset: u64) {
     let usable_memory = (&**memory)
