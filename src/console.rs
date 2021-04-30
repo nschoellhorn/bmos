@@ -118,6 +118,9 @@ impl<'a> Console<'a> {
                     self.draw_char(character, x as u32, y as u32, foreground_color);
                 });
         });
+
+        let mut framebuffer = self.framebuffer.lock();
+        framebuffer.flip();
     }
 
     /*pub fn print(&mut self, string: &str) {
