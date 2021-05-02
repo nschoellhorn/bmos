@@ -1,29 +1,44 @@
-use crate::console::Console;
+use crate::console::{Console, Position};
+use crate::debug;
 use crate::keyboard::{KeyEvent, KeyboardHandler};
 use core::cell::RefCell;
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
 use spin::Mutex;
 
-#[derive(Clone, Copy)]
-pub struct CursorPosition {
-    pub column: u32,
-    pub row: u32,
-}
+static PROMPT: &'static str = "bmos> ";
 
 pub struct Terminal<'a> {
-    cursor: Mutex<RefCell<CursorPosition>>,
+    cursor: Mutex<RefCell<Position>>,
     console: &'a Console<'a>,
 }
 
 impl<'a> Terminal<'a> {
     pub fn new(console: &'a Console<'a>) -> Self {
-        Self {
-            cursor: Mutex::new(RefCell::new(CursorPosition { row: 0, column: 0 })),
+        let this = Self {
+            cursor: Mutex::new(RefCell::new(Position { row: 0, column: 0 })),
             console,
-        }
+        };
+
+        this.draw_prompt();
+
+        this
     }
 
-    fn move_cursor_right(&self) -> CursorPosition {
+    fn draw_prompt(&self) {
+        let lock = self.cursor.lock();
+        let mut cursor = lock.borrow_mut();
+
+        self.console.print(PROMPT, cursor.column, cursor.row);
+
+        cursor.column = core::cmp::min(
+            cursor.column + PROMPT.len() as u32,
+            self.console.width() - 1,
+        );
+
+        self.console.redraw_screen(cursor.clone());
+    }
+
+    fn move_cursor_right(&self) -> Position {
         let lock = self.cursor.lock();
         let mut cursor = lock.borrow_mut();
         if cursor.column == self.console.width() - 1 {
@@ -37,7 +52,7 @@ impl<'a> Terminal<'a> {
         (*lock).clone().into_inner()
     }
 
-    fn move_cursor_left(&self) -> CursorPosition {
+    fn move_cursor_left(&self) -> Position {
         let lock = self.cursor.lock();
         let mut cursor = lock.borrow_mut();
         if cursor.column == 0 {
@@ -50,6 +65,19 @@ impl<'a> Terminal<'a> {
         drop(cursor);
         (*lock).clone().into_inner()
     }
+
+    fn relative_cursor_position(&self) -> Option<Position> {
+        let mut cursor = self.cursor.lock().clone().into_inner();
+
+        match cursor.column.checked_sub(PROMPT.len() as u32) {
+            Some(new_column) => {
+                cursor.column = new_column;
+
+                Some(cursor)
+            }
+            None => None,
+        }
+    }
 }
 
 impl<'a> KeyboardHandler for Terminal<'a> {
@@ -60,6 +88,17 @@ impl<'a> KeyboardHandler for Terminal<'a> {
 
         match (event.key_code(), event.key_state()) {
             (KeyCode::Backspace, KeyState::Down) => {
+                let relative_cursor_position = self.relative_cursor_position();
+
+                match relative_cursor_position {
+                    Some(relative_cursor) => {
+                        if relative_cursor.column == 0 {
+                            return;
+                        }
+                    }
+                    None => return,
+                };
+
                 cursor = self.move_cursor_left();
                 self.console.delete_char(cursor.column, cursor.row);
                 self.console.redraw_screen(cursor);
@@ -71,6 +110,24 @@ impl<'a> KeyboardHandler for Terminal<'a> {
             (KeyCode::ArrowRight, KeyState::Down) => {
                 cursor = self.move_cursor_right();
             }
+            (KeyCode::Enter, KeyState::Down) => {
+                let start = Position {
+                    column: PROMPT.len() as u32,
+                    row: cursor.row,
+                };
+                let end = Position {
+                    column: core::cmp::max(cursor.column - 1, PROMPT.len() as u32),
+                    row: cursor.row,
+                };
+                debug!("End: {:?}", end);
+
+                let input = self.console.get_range_as_string(start, end);
+
+                debug!("User Input: {:?}", &input);
+
+                return;
+            }
+
             _ => {}
         }
 

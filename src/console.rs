@@ -1,5 +1,6 @@
+use crate::debug;
 use crate::graphics::{Framebuffer, GraphicsSettings};
-use crate::terminal::CursorPosition;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use psf::Font;
@@ -8,6 +9,17 @@ use spin::Mutex;
 // base color, simply white for now
 const BACKGROUND_COLOR: u32 = 0x000000;
 const FOREGROUND_COLOR: u32 = 0xffffff;
+
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
+pub struct Position {
+    pub column: u32,
+    pub row: u32,
+}
+
+#[derive(Debug)]
+pub enum ConsoleError {
+    OutOfBounds(Position),
+}
 
 pub struct Console<'a> {
     font: &'a Font<'a>,
@@ -35,12 +47,12 @@ impl<'a> Console<'a> {
             screen_buffer: Mutex::new(vec![vec![None; width as usize]; height as usize]),
         };
 
-        this.redraw_screen(CursorPosition { row: 0, column: 0 });
+        this.redraw_screen(Position { row: 0, column: 0 });
 
         this
     }
 
-    fn draw_cursor(&self, cursor_position: CursorPosition, color: u32) {
+    fn draw_cursor(&self, cursor_position: Position, color: u32) {
         let mut framebuffer = self.framebuffer.lock();
         let x = cursor_position.column;
         let y = cursor_position.row;
@@ -56,7 +68,53 @@ impl<'a> Console<'a> {
         }
     }
 
-    pub fn redraw_screen(&self, cursor_position: CursorPosition) {
+    pub fn get_range_as_string(
+        &self,
+        start: Position,
+        end: Position,
+    ) -> Result<String, ConsoleError> {
+        if !self.is_within_bounds(start) {
+            return Err(ConsoleError::OutOfBounds(start));
+        }
+        if !self.is_within_bounds(end) {
+            return Err(ConsoleError::OutOfBounds(end));
+        }
+
+        if start == end {
+            return Ok(String::new());
+        }
+
+        let char_count =
+            (end.row - start.row + 1) * self.width - start.column - (self.width - end.column - 1);
+        debug!("char count: {}", char_count);
+        let mut string = String::with_capacity(char_count as usize);
+        for y in start.row..=end.row {
+            let start_col = if y == start.row { start.column } else { 0 };
+            let end_col = if y == end.row {
+                end.column
+            } else {
+                self.width - 1
+            };
+
+            for x in start_col..=end_col {
+                let screen_buffer = self.screen_buffer.lock();
+                let row = screen_buffer.get(y as usize).unwrap();
+                let c = match row[x as usize] {
+                    Some(c) => c,
+                    None => ' ',
+                };
+                string.push(c);
+            }
+        }
+
+        Ok(string)
+    }
+
+    pub fn is_within_bounds(&self, position: Position) -> bool {
+        position.column <= (self.width - 1) && position.row <= (self.height - 1)
+    }
+
+    pub fn redraw_screen(&self, cursor_position: Position) {
         let mut framebuffer = self.framebuffer.lock();
         framebuffer.clear();
 
@@ -110,6 +168,19 @@ impl<'a> Console<'a> {
                 }
             }
         }
+    }
+
+    pub fn print(&self, string: &str, x: u32, y: u32) {
+        let mut x = x;
+
+        string.chars().for_each(|c| {
+            self.put_char(c, x, y);
+            if x == self.width - 1 {
+                return;
+            }
+
+            x += 1;
+        });
     }
 
     pub fn delete_char(&self, x: u32, y: u32) {
