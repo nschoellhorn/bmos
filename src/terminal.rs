@@ -1,15 +1,17 @@
 use crate::console::{Console, Position};
 use crate::debug;
 use crate::keyboard::{KeyEvent, KeyboardHandler};
+use alloc::string::String;
 use core::cell::RefCell;
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
-use spin::Mutex;
+use spin::{Mutex, RwLock};
 
 static PROMPT: &'static str = "bmos> ";
 
 pub struct Terminal<'a> {
     cursor: Mutex<RefCell<Position>>,
     console: &'a Console<'a>,
+    input_buffer: RwLock<String>,
 }
 
 impl<'a> Terminal<'a> {
@@ -17,6 +19,7 @@ impl<'a> Terminal<'a> {
         let this = Self {
             cursor: Mutex::new(RefCell::new(Position { row: 0, column: 0 })),
             console,
+            input_buffer: RwLock::new(String::new()),
         };
 
         this.draw_prompt();
@@ -78,6 +81,17 @@ impl<'a> Terminal<'a> {
             None => None,
         }
     }
+
+    fn redraw_line_until(&self, position: Position) {
+        let input_buffer = self.input_buffer.read();
+        for index in PROMPT.len()..PROMPT.len() + position.column as usize {
+            self.console.delete_char(index as u32, position.row);
+            let input_buffer_pos = index - PROMPT.len();
+            if let Some(c) = input_buffer.chars().nth(input_buffer_pos) {
+                self.console.put_char(c, index as u32, position.row);
+            }
+        }
+    }
 }
 
 impl<'a> KeyboardHandler for Terminal<'a> {
@@ -100,29 +114,35 @@ impl<'a> KeyboardHandler for Terminal<'a> {
                 };
 
                 cursor = self.move_cursor_left();
-                self.console.delete_char(cursor.column, cursor.row);
+                let relative_cursor = self.relative_cursor_position().unwrap();
+                let mut input_buffer = self.input_buffer.write();
+                let char_amount = input_buffer.len();
+                let _ = input_buffer.remove(relative_cursor.column as usize);
+                drop(input_buffer);
+                self.redraw_line_until(Position {
+                    column: char_amount as u32,
+                    row: relative_cursor.row,
+                });
                 self.console.redraw_screen(cursor);
                 return;
             }
             (KeyCode::ArrowLeft, KeyState::Down) => {
+                let relative_cursor = self.relative_cursor_position().unwrap();
+                if relative_cursor.column == 0 {
+                    return;
+                }
                 cursor = self.move_cursor_left();
             }
             (KeyCode::ArrowRight, KeyState::Down) => {
+                let relative_cursor = self.relative_cursor_position().unwrap();
+                if relative_cursor.column == self.input_buffer.read().len() as u32 {
+                    return;
+                }
                 cursor = self.move_cursor_right();
             }
             (KeyCode::Enter, KeyState::Down) => {
-                let start = Position {
-                    column: PROMPT.len() as u32,
-                    row: cursor.row,
-                };
-                let end = Position {
-                    column: core::cmp::max(cursor.column - 1, PROMPT.len() as u32),
-                    row: cursor.row,
-                };
-                debug!("End: {:?}", end);
-
-                let input = self.console.get_range_as_string(start, end);
-
+                let input_buffer = self.input_buffer.read();
+                let input = input_buffer.as_str();
                 debug!("User Input: {:?}", &input);
 
                 return;
@@ -133,7 +153,15 @@ impl<'a> KeyboardHandler for Terminal<'a> {
 
         if let Some(DecodedKey::Unicode(key)) = event.decoded_key() {
             if cursor.column < self.console.width() - 1 {
-                self.console.put_char(key, cursor.column, cursor.row);
+                let mut input_buffer = self.input_buffer.write();
+                let relative_cursor = self.relative_cursor_position().unwrap();
+                input_buffer.insert(relative_cursor.column as usize, key);
+                let char_amount = input_buffer.len();
+                drop(input_buffer);
+                self.redraw_line_until(Position {
+                    row: relative_cursor.row,
+                    column: PROMPT.len() as u32 + char_amount as u32,
+                });
                 cursor = self.move_cursor_right();
             }
         }
