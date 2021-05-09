@@ -16,12 +16,14 @@ use psf::Font;
 use spin::Mutex;
 
 mod console;
+mod cpu;
 mod gdt;
 mod graphics;
 mod interrupts;
 mod keyboard;
 mod memory;
 mod serial;
+mod shell;
 mod terminal;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
@@ -31,8 +33,8 @@ entry_point!(kernel_main);
 static mut GRAPHICS_SETTINGS: Option<GraphicsSettings> = None;
 static mut FRAMEBUFFER: Option<Mutex<Framebuffer>> = None;
 static mut BASE_FONT: Option<Font> = None;
-static mut CONSOLE: Option<Console<'static>> = None;
-static mut TERMINAL: Option<Terminal<'static>> = None;
+pub static mut CONSOLE: Option<Console<'static>> = None;
+pub static mut TERMINAL: Option<Terminal<'static>> = None;
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();

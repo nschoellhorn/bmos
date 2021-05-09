@@ -3,3 +3,5 @@ kbuild = """build --target x86_64-bmos.json -Z build-std=core,alloc \
     -Z build-std-features=compiler-builtins-mem"""
 kclippy = """clippy --target x86_64-bmos.json -Z build-std=core,alloc \
     -Z build-std-features=compiler-builtins-mem"""
+ktest = """test --target x86_64-bmos.json -Z build-std=core,alloc \
+    -Z build-std-features=compiler-builtins-mem"""

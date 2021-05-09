@@ -1,6 +1,8 @@
 use crate::console::{Console, Position};
 use crate::debug;
 use crate::keyboard::{KeyEvent, KeyboardHandler};
+use crate::shell::builtins::BUILTINS;
+use crate::shell::parser::parse_command_line;
 use alloc::string::String;
 use core::cell::RefCell;
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
@@ -69,6 +71,10 @@ impl<'a> Terminal<'a> {
         (*lock).clone().into_inner()
     }
 
+    pub fn cursor_position(&self) -> Position {
+        self.cursor.lock().clone().into_inner()
+    }
+
     fn relative_cursor_position(&self) -> Option<Position> {
         let mut cursor = self.cursor.lock().clone().into_inner();
 
@@ -91,6 +97,68 @@ impl<'a> Terminal<'a> {
                 self.console.put_char(c, index as u32, position.row);
             }
         }
+    }
+
+    fn set_cursor_position(&self, position: Position) {
+        let mut cursor = self.cursor.lock();
+        let mut mut_cursor = cursor.borrow_mut();
+
+        mut_cursor.row = position.row;
+        mut_cursor.column = position.column;
+    }
+
+    fn handle_input(&self, string: String) {
+        if string.is_empty() {
+            return;
+        }
+        let relative_cursor = self.relative_cursor_position().unwrap();
+        let position = Position {
+            row: relative_cursor.row + 1,
+            column: 0,
+        };
+        self.set_cursor_position(position);
+        let parse_result = parse_command_line(string.trim());
+        match parse_result {
+            Ok((leftover, mut command_line)) => {
+                if !leftover.is_empty() {
+                    self.print_parse_error(leftover);
+                    self.console.redraw_screen(position);
+                    return;
+                }
+                debug!("Parsed command line: {:?}", command_line);
+
+                let command = command_line.remove(0);
+                let arguments = command_line;
+
+                debug!("Command: {}, Arguments: {:?}", command, arguments);
+                match (*BUILTINS).get(command) {
+                    Some(builtin) => builtin.execute(arguments),
+                    None => {
+                        let cursor = self.cursor.lock();
+                        self.console.print(
+                            "Command not found.",
+                            cursor.borrow().column,
+                            cursor.borrow().row,
+                        );
+                    }
+                }
+            }
+            Err(error) => {
+                self.print_parse_error(error);
+            }
+        }
+
+        self.console.redraw_screen(position);
+    }
+
+    fn print_parse_error<D: core::fmt::Debug>(&self, error: D) {
+        debug!("Parsing error: {:?}", error);
+        let cursor = self.cursor.lock();
+        self.console.print(
+            "Invalid command syntax.",
+            cursor.borrow().column,
+            cursor.borrow().row,
+        );
     }
 }
 
@@ -140,10 +208,25 @@ impl<'a> KeyboardHandler for Terminal<'a> {
                 }
                 cursor = self.move_cursor_right();
             }
-            (KeyCode::Enter, KeyState::Down) => {
-                let input_buffer = self.input_buffer.read();
-                let input = input_buffer.as_str();
+            (KeyCode::Enter | KeyCode::NumpadEnter, KeyState::Down) => {
+                let mut input_buffer = self.input_buffer.write();
+                let input = input_buffer.clone();
+                input_buffer.clear();
                 debug!("User Input: {:?}", &input);
+
+                self.handle_input(input);
+
+                let cursor_lock = self.cursor.lock();
+                let cursor = cursor_lock.borrow();
+                // Print a new prompt
+                let new_cursor_position = Position {
+                    column: 0,
+                    row: cursor.row + 1,
+                };
+                drop(cursor);
+                drop(cursor_lock);
+                self.set_cursor_position(new_cursor_position);
+                self.draw_prompt();
 
                 return;
             }

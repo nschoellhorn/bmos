@@ -1,4 +1,7 @@
+use crate::cpu;
+use crate::debug;
 use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
+use crate::{CONSOLE, TERMINAL};
 use lazy_static::lazy_static;
 use pc_keyboard::layouts::Us104Key;
 use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
@@ -22,6 +25,7 @@ lazy_static! {
         // Handle timer interrupts
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_handler);
+        idt[InterruptIndex::Syscall.as_usize()].set_handler_fn(syscall_handler);
 
         idt
     };
@@ -35,6 +39,7 @@ lazy_static! {
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
     Keyboard = PIC_1_OFFSET + 1,
+    Syscall = 0x80,
 }
 
 impl InterruptIndex {
@@ -52,6 +57,32 @@ extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
+}
+
+extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) {
+    let syscall_number = cpu::read_rax();
+    match syscall_number {
+        1 => {
+            // print()
+            let data_start = cpu::read_rdi() as *const u8;
+            let length = cpu::read_rsi();
+            debug!(
+                "Arguments: data_start = {:#?}, length = {}",
+                data_start, length
+            );
+
+            let data_slice = unsafe { core::slice::from_raw_parts(data_start, length as usize) };
+            let string = core::str::from_utf8(data_slice);
+
+            let cursor = unsafe { TERMINAL.as_ref().unwrap().cursor_position() };
+            let console = unsafe { CONSOLE.as_ref().unwrap() };
+            debug!("String Result: {:?}", string);
+
+            console.print(string.unwrap(), cursor.column, cursor.row);
+        }
+        _ => debug!("INVALID SYSCALL NUMBER"),
+    }
+    debug!("SYSCALL: {}", syscall_number);
 }
 
 extern "x86-interrupt" fn keyboard_handler(stack_frame: InterruptStackFrame) {

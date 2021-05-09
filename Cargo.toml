@@ -17,9 +17,12 @@ psf = { git = "https://github.com/nschoellhorn/psf.git", branch = "feature/nostd
 pic8259_simple = "0.2.0"
 pc-keyboard = "0.5.1"
 linked_list_allocator = "0.8.11"
+nom = { version = "6.1.2", features = ["alloc"], default-features = false }
+hashbrown = "0.11.2"
+bmos-std = { path = "./bmos-std" }
 
 [workspace]
-members = ["boot"]
+members = ["boot", "bmos-std"]
 
 [package.metadata.bootloader]
 map-physical-memory = true
