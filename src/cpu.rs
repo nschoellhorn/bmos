@@ -25,6 +25,15 @@ pub fn read_rsi() -> u64 {
     rsi_value
 }
 
+pub fn read_rdx() -> u64 {
+    let rdx_value: u64;
+    unsafe {
+        asm!("mov {}, rdx", out(reg) rdx_value, options(nomem));
+    }
+
+    rdx_value
+}
+
 pub fn write_rax(rax_value: u64) {
     unsafe {
         asm!("mov rax, {}", in(reg) rax_value, options(nomem));

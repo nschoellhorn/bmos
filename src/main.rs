@@ -9,6 +9,8 @@ extern crate alloc;
 use crate::console::Console;
 use crate::keyboard::KEYBOARD_REGISTRY;
 use crate::terminal::Terminal;
+use alloc::boxed::Box;
+use bmos_shell::BmShell;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use graphics::{Framebuffer, GraphicsSettings};
@@ -23,7 +25,6 @@ mod interrupts;
 mod keyboard;
 mod memory;
 mod serial;
-mod shell;
 mod terminal;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
@@ -78,6 +79,9 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         let registry = KEYBOARD_REGISTRY.as_mut().unwrap();
 
         registry.register(TERMINAL.as_mut().unwrap());
+
+        let shell = Box::new(BmShell::new());
+        TERMINAL.as_mut().unwrap().launch_shell(shell);
     };
 
     loop {

@@ -199,4 +199,8 @@ impl<'a> Console<'a> {
     pub fn width(&self) -> u32 {
         self.width
     }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
 }

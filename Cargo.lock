@@ -41,12 +41,11 @@ dependencies = [
 name = "bmos"
 version = "0.1.0"
 dependencies = [
+ "bmos-shell",
  "bmos-std",
  "bootloader",
- "hashbrown",
  "lazy_static",
  "linked_list_allocator",
- "nom",
  "pc-keyboard",
  "pic8259_simple",
  "psf",
@@ -54,6 +53,16 @@ dependencies = [
  "spin 0.9.0",
  "uart_16550",
  "x86_64 0.14.0",
+]
+
+[[package]]
+name = "bmos-shell"
+version = "0.1.0"
+dependencies = [
+ "bmos-std",
+ "hashbrown",
+ "lazy_static",
+ "nom",
 ]
 
 [[package]]

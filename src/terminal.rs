@@ -1,9 +1,9 @@
 use crate::console::{Console, Position};
 use crate::debug;
 use crate::keyboard::{KeyEvent, KeyboardHandler};
-use crate::shell::builtins::BUILTINS;
-use crate::shell::parser::parse_command_line;
+use alloc::boxed::Box;
 use alloc::string::String;
+use bmos_shell::Shell;
 use core::cell::RefCell;
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
 use spin::{Mutex, RwLock};
@@ -14,6 +14,7 @@ pub struct Terminal<'a> {
     cursor: Mutex<RefCell<Position>>,
     console: &'a Console<'a>,
     input_buffer: RwLock<String>,
+    shell: Option<Box<dyn Shell + Send + Sync>>,
 }
 
 impl<'a> Terminal<'a> {
@@ -22,11 +23,16 @@ impl<'a> Terminal<'a> {
             cursor: Mutex::new(RefCell::new(Position { row: 0, column: 0 })),
             console,
             input_buffer: RwLock::new(String::new()),
+            shell: None,
         };
 
         this.draw_prompt();
 
         this
+    }
+
+    pub fn launch_shell(&mut self, shell: Box<dyn Shell + Send + Sync>) {
+        self.shell = Some(shell);
     }
 
     fn draw_prompt(&self) {
@@ -71,6 +77,31 @@ impl<'a> Terminal<'a> {
         (*lock).clone().into_inner()
     }
 
+    fn move_cursor_down(&self) -> Position {
+        let lock = self.cursor.lock();
+        let mut cursor = lock.borrow_mut();
+        if cursor.row == self.console.height() - 1 {
+            drop(cursor);
+            return (*lock).clone().into_inner();
+        }
+
+        cursor.row += 1;
+
+        drop(cursor);
+        (*lock).clone().into_inner()
+    }
+
+    fn move_cursor_to_start(&self) -> Position {
+        let lock = self.cursor.lock();
+        let mut cursor = lock.borrow_mut();
+
+        cursor.column = 0;
+
+        drop(cursor);
+
+        (*lock).clone().into_inner()
+    }
+
     pub fn cursor_position(&self) -> Position {
         self.cursor.lock().clone().into_inner()
     }
@@ -111,54 +142,13 @@ impl<'a> Terminal<'a> {
         if string.is_empty() {
             return;
         }
-        let relative_cursor = self.relative_cursor_position().unwrap();
-        let position = Position {
-            row: relative_cursor.row + 1,
-            column: 0,
-        };
-        self.set_cursor_position(position);
-        let parse_result = parse_command_line(string.trim());
-        match parse_result {
-            Ok((leftover, mut command_line)) => {
-                if !leftover.is_empty() {
-                    self.print_parse_error(leftover);
-                    self.console.redraw_screen(position);
-                    return;
-                }
-                debug!("Parsed command line: {:?}", command_line);
 
-                let command = command_line.remove(0);
-                let arguments = command_line;
+        self.move_cursor_down();
+        self.move_cursor_to_start();
 
-                debug!("Command: {}, Arguments: {:?}", command, arguments);
-                match (*BUILTINS).get(command) {
-                    Some(builtin) => builtin.execute(arguments),
-                    None => {
-                        let cursor = self.cursor.lock();
-                        self.console.print(
-                            "Command not found.",
-                            cursor.borrow().column,
-                            cursor.borrow().row,
-                        );
-                    }
-                }
-            }
-            Err(error) => {
-                self.print_parse_error(error);
-            }
+        if let Some(shell) = &self.shell {
+            shell.process_input(string);
         }
-
-        self.console.redraw_screen(position);
-    }
-
-    fn print_parse_error<D: core::fmt::Debug>(&self, error: D) {
-        debug!("Parsing error: {:?}", error);
-        let cursor = self.cursor.lock();
-        self.console.print(
-            "Invalid command syntax.",
-            cursor.borrow().column,
-            cursor.borrow().row,
-        );
     }
 }
 

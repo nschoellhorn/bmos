@@ -1,7 +1,10 @@
 use crate::cpu;
 use crate::debug;
 use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
+use crate::serial::SERIAL;
 use crate::{CONSOLE, TERMINAL};
+use bmos_std::io::IOChannel;
+use core::fmt::Write;
 use lazy_static::lazy_static;
 use pc_keyboard::layouts::Us104Key;
 use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
@@ -66,19 +69,28 @@ extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) {
             // print()
             let data_start = cpu::read_rdi() as *const u8;
             let length = cpu::read_rsi();
+            let io_channel = IOChannel::from_u32(cpu::read_rdx() as u32).unwrap();
             debug!(
-                "Arguments: data_start = {:#?}, length = {}",
-                data_start, length
+                "Arguments: data_start = {:#?}, length = {}, io_channel = {:?}",
+                data_start, length, io_channel
             );
 
             let data_slice = unsafe { core::slice::from_raw_parts(data_start, length as usize) };
             let string = core::str::from_utf8(data_slice);
-
-            let cursor = unsafe { TERMINAL.as_ref().unwrap().cursor_position() };
-            let console = unsafe { CONSOLE.as_ref().unwrap() };
             debug!("String Result: {:?}", string);
 
-            console.print(string.unwrap(), cursor.column, cursor.row);
+            match io_channel {
+                IOChannel::Stdout => {
+                    let cursor = unsafe { TERMINAL.as_ref().unwrap().cursor_position() };
+                    let console = unsafe { CONSOLE.as_ref().unwrap() };
+
+                    console.print(string.unwrap(), cursor.column, cursor.row);
+                }
+                IOChannel::Serial => {
+                    let mut serial = SERIAL.lock();
+                    serial.write_str(string.unwrap()).unwrap();
+                }
+            }
         }
         _ => debug!("INVALID SYSCALL NUMBER"),
     }
