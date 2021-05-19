@@ -2,12 +2,15 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 #![feature(asm)]
+#![feature(naked_functions)]
+#![feature(global_asm)]
 #![feature(default_alloc_error_handler)]
 
 extern crate alloc;
 
 use crate::console::Console;
 use crate::keyboard::KEYBOARD_REGISTRY;
+use crate::scheduler::RoundRobinScheduler;
 use crate::terminal::Terminal;
 use alloc::boxed::Box;
 use bmos_shell::BmShell;
@@ -24,8 +27,10 @@ mod graphics;
 mod interrupts;
 mod keyboard;
 mod memory;
+mod scheduler;
 mod serial;
 mod terminal;
+mod threading;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
 
@@ -36,15 +41,28 @@ static mut FRAMEBUFFER: Option<Mutex<Framebuffer>> = None;
 static mut BASE_FONT: Option<Font> = None;
 pub static mut CONSOLE: Option<Console<'static>> = None;
 pub static mut TERMINAL: Option<Terminal<'static>> = None;
+pub static mut SCHEDULER: Option<RoundRobinScheduler> = None;
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();
-    interrupts::init();
-    keyboard::init();
     memory::init(
         &boot_info.memory_regions,
         boot_info.physical_memory_offset.into_option().unwrap(),
     );
+
+    unsafe {
+        let initial_task = threading::build("main", || {
+            debug!("Hello from main thread");
+        });
+        SCHEDULER = Some(RoundRobinScheduler::new(initial_task));
+    }
+
+    interrupts::init();
+    keyboard::init();
+
+    threading::spawn("test", || {
+        debug!("Printing from a nice thread!");
+    });
 
     // First, set up basic graphics and a console to make sure we can print debug stuff
     if let bootloader::boot_info::Optional::None = boot_info.framebuffer {

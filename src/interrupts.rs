@@ -2,7 +2,7 @@ use crate::cpu;
 use crate::debug;
 use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
 use crate::serial::SERIAL;
-use crate::{CONSOLE, TERMINAL};
+use crate::{CONSOLE, SCHEDULER, TERMINAL};
 use bmos_std::io::IOChannel;
 use core::fmt::Write;
 use lazy_static::lazy_static;
@@ -57,6 +57,7 @@ impl InterruptIndex {
 
 extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     unsafe {
+        SCHEDULER.as_mut().unwrap().tick();
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }

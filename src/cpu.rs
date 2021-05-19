@@ -1,3 +1,5 @@
+use crate::threading::Thread;
+
 pub fn read_rax() -> u64 {
     let rax_value: u64;
     unsafe {
@@ -38,4 +40,19 @@ pub fn write_rax(rax_value: u64) {
     unsafe {
         asm!("mov rax, {}", in(reg) rax_value, options(nomem));
     }
+}
+
+global_asm!(include_str!("cpu.s"));
+
+pub fn switch_context(from_thread: &mut Thread, to_thread: &Thread) {
+    unsafe {
+        __switch_context(
+            from_thread as *mut _ as *mut core::ffi::c_void,
+            to_thread as *const _ as *const core::ffi::c_void,
+        );
+    }
+}
+
+extern "C" {
+    fn __switch_context(from_thread: *mut core::ffi::c_void, to_thread: *const core::ffi::c_void);
 }
