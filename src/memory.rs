@@ -125,7 +125,7 @@ impl<'a> MemoryManager<'a> {
             }
         };
 
-        self.kernel_pages_allocated += 1;
+        self.kernel_pages_allocated += 1; // we allocate only one page, but we increment by two to make sure we have guard pages inbetween
 
         Some(page)
     }

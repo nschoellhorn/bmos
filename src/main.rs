@@ -62,6 +62,16 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     threading::spawn("test", || {
         debug!("Printing from a nice thread!");
+
+        unsafe {
+            loop {
+                asm!("hlt");
+            }
+        }
+    });
+
+    threading::spawn("something", || {
+        debug!("THIS IS SOMETHING");
     });
 
     // First, set up basic graphics and a console to make sure we can print debug stuff

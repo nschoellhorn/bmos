@@ -2,6 +2,7 @@ use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
+use x86_64::instructions::interrupts::without_interrupts;
 
 lazy_static! {
     pub static ref SERIAL: Mutex<SerialLine> = {
@@ -15,6 +16,11 @@ lazy_static! {
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => ($crate::serial::_debug(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! dbg_inline {
+    ($($arg:tt)*) => ($crate::serial::_debug_inline(format_args!($($arg)*)));
 }
 
 pub struct SerialLine {
@@ -37,7 +43,20 @@ impl fmt::Write for SerialLine {
 #[doc(hidden)]
 pub fn _debug(args: fmt::Arguments) {
     use core::fmt::Write;
-    let mut serial = SERIAL.lock();
-    serial.write_fmt(args).unwrap();
-    serial.write_str("\n").unwrap();
+
+    without_interrupts(|| {
+        let mut serial = SERIAL.lock();
+        serial.write_fmt(args).unwrap();
+        serial.write_str("\n").unwrap();
+    });
+}
+
+#[doc(hidden)]
+pub fn _debug_inline(args: fmt::Arguments) {
+    use core::fmt::Write;
+
+    without_interrupts(|| {
+        let mut serial = SERIAL.lock();
+        serial.write_fmt(args).unwrap();
+    });
 }

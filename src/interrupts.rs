@@ -11,6 +11,7 @@ use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
 use pic8259_simple::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
+use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 pub const PIC_1_OFFSET: u8 = 32;
@@ -24,6 +25,8 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.double_fault.set_handler_fn(double_fault_handler);
+        idt.page_fault.set_handler_fn(segfault_handler);
+        idt.invalid_opcode.set_handler_fn(opcode_handler);
 
         // Handle timer interrupts
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
@@ -57,10 +60,21 @@ impl InterruptIndex {
 
 extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     unsafe {
-        SCHEDULER.as_mut().unwrap().tick();
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+        SCHEDULER.as_mut().unwrap().tick();
     }
+}
+
+extern "x86-interrupt" fn opcode_handler(stack_frame: InterruptStackFrame) {
+    panic!("INVALID OPCODE");
+}
+
+extern "x86-interrupt" fn segfault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
+    panic!("SEGFAULT: {:?}, error: {:?}", stack_frame, error_code);
 }
 
 extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) {

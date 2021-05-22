@@ -17,11 +17,11 @@ pub trait Shell {
     fn process_input(&self, input: String);
 }
 
-pub struct BmShell {}
+pub struct BmShell;
 
 impl BmShell {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 
     fn print_parse_error<D: core::fmt::Debug>(&self, error: D) {

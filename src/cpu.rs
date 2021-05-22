@@ -1,4 +1,6 @@
+use crate::debug;
 use crate::threading::Thread;
+use alloc::boxed::Box;
 
 pub fn read_rax() -> u64 {
     let rax_value: u64;
@@ -42,13 +44,14 @@ pub fn write_rax(rax_value: u64) {
     }
 }
 
-global_asm!(include_str!("cpu.s"));
+global_asm!(include_str!("asm/cpu.s"));
 
-pub fn switch_context(from_thread: &mut Thread, to_thread: &Thread) {
+pub fn switch_context(from_thread: *const Thread, to_thread: *const Thread) {
     unsafe {
+        debug!("Switch Context to {:?}", (*to_thread));
         __switch_context(
-            from_thread as *mut _ as *mut core::ffi::c_void,
-            to_thread as *const _ as *const core::ffi::c_void,
+            from_thread as *mut core::ffi::c_void,
+            to_thread as *mut core::ffi::c_void,
         );
     }
 }

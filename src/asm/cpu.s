@@ -16,7 +16,7 @@ __switch_context:
     popq %r14
     popq %r13
     popq %r12
-    popq %rdi
+    movq %rsi, %rdi
     sti
     ret
 
