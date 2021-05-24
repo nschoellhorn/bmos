@@ -1,7 +1,9 @@
 [alias]
-kbuild = """build --target x86_64-bmos.json -Z build-std=core,alloc \
-    -Z build-std-features=compiler-builtins-mem"""
-kclippy = """clippy --target x86_64-bmos.json -Z build-std=core,alloc \
-    -Z build-std-features=compiler-builtins-mem"""
-ktest = """test --target x86_64-bmos.json -Z build-std=core,alloc \
-    -Z build-std-features=compiler-builtins-mem"""
+mkboot = "run --package=boot --target=aarch64-apple-darwin"
+
+[build]
+target = "x86_64-bmos.json"
+
+[unstable]
+build-std-features = ["compiler-builtins-mem"]
+build-std = ["core", "compiler_builtins", "alloc"]

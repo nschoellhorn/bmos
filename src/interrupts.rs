@@ -8,7 +8,7 @@ use core::fmt::Write;
 use lazy_static::lazy_static;
 use pc_keyboard::layouts::Us104Key;
 use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
-use pic8259_simple::ChainedPics;
+use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};

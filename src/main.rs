@@ -3,6 +3,8 @@
 #![feature(abi_x86_interrupt)]
 #![feature(asm)]
 #![feature(default_alloc_error_handler)]
+#![feature(box_syntax)]
+#![feature(global_asm)]
 
 extern crate alloc;
 
@@ -16,6 +18,7 @@ use core::panic::PanicInfo;
 use graphics::{Framebuffer, GraphicsSettings};
 use psf::Font;
 use spin::Mutex;
+use alloc::string::String;
 
 mod console;
 mod cpu;
@@ -26,6 +29,7 @@ mod keyboard;
 mod memory;
 mod serial;
 mod terminal;
+mod task;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
 
@@ -39,12 +43,26 @@ pub static mut TERMINAL: Option<Terminal<'static>> = None;
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();
-    interrupts::init();
+
     keyboard::init();
     memory::init(
         &boot_info.memory_regions,
         boot_info.physical_memory_offset.into_option().unwrap(),
     );
+
+    // Create idle thread to initialize context switching
+    let idle_thread = task::build_thread(String::from("__idle"), || unsafe {
+        loop {
+            debug!("Idle...");
+            asm!("hlt");
+        }
+    });
+
+    interrupts::init();
+
+    unsafe {
+        cpu::init_switch(&idle_thread);
+    }
 
     // First, set up basic graphics and a console to make sure we can print debug stuff
     if let bootloader::boot_info::Optional::None = boot_info.framebuffer {

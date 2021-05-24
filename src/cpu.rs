@@ -1,3 +1,6 @@
+use x86_64::VirtAddr;
+use crate::task::Thread;
+
 pub fn read_rax() -> u64 {
     let rax_value: u64;
     unsafe {
@@ -38,4 +41,19 @@ pub fn write_rax(rax_value: u64) {
     unsafe {
         asm!("mov rax, {}", in(reg) rax_value, options(nomem));
     }
+}
+
+pub unsafe fn init_switch(init_thread: &Thread) {
+    __init_switch(init_thread as *const Thread);
+}
+
+pub unsafe fn switch_context(previous_thread: &mut Thread, next_thread: &Thread) {
+    __switch_context(previous_thread as *mut Thread, next_thread);
+}
+
+global_asm!(include_str!("asm/cpu.s"));
+
+extern "C" {
+    fn __switch_context(previous_thread: *mut Thread, next_thread: *const Thread);
+    fn __init_switch(init_thread: *const Thread);
 }
