@@ -2,7 +2,7 @@ use crate::cpu;
 use crate::debug;
 use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
 use crate::serial::SERIAL;
-use crate::{CONSOLE, TERMINAL};
+use crate::{CONSOLE, TERMINAL, SCHEDULER};
 use bmos_std::io::IOChannel;
 use core::fmt::Write;
 use lazy_static::lazy_static;
@@ -12,12 +12,19 @@ use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use core::sync::atomic::{AtomicU8, Ordering};
+use crate::task::Thread;
+use x86_64::instructions::interrupts::are_enabled;
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
+const MAX_TICKS: u8 = 10;
+
 pub static PICS: spin::Mutex<ChainedPics> =
     spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+
+static mut TICKS: AtomicU8 = AtomicU8::new(0);
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -55,10 +62,25 @@ impl InterruptIndex {
     }
 }
 
-extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn timer_handler(_: InterruptStackFrame) {
     unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+        if TICKS.load(Ordering::SeqCst) == MAX_TICKS {
+            TICKS.store(0, Ordering::SeqCst);
+            let next = SCHEDULER.as_mut().unwrap().pick_next();
+
+            if let Some((current, next)) = next {
+                PICS.lock()
+                    .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+                cpu::switch_context(&*current, &*next);
+            } else {
+                PICS.lock()
+                    .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+            }
+        } else {
+            let _ = TICKS.fetch_add(1, Ordering::SeqCst);
+            PICS.lock()
+                .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+        }
     }
 }
 

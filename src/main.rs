@@ -19,6 +19,8 @@ use graphics::{Framebuffer, GraphicsSettings};
 use psf::Font;
 use spin::Mutex;
 use alloc::string::String;
+use crate::scheduler::Scheduler;
+use alloc::sync::Arc;
 
 mod console;
 mod cpu;
@@ -30,6 +32,7 @@ mod memory;
 mod serial;
 mod terminal;
 mod task;
+mod scheduler;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
 
@@ -41,6 +44,8 @@ static mut BASE_FONT: Option<Font> = None;
 pub static mut CONSOLE: Option<Console<'static>> = None;
 pub static mut TERMINAL: Option<Terminal<'static>> = None;
 
+pub static mut SCHEDULER: Option<Scheduler> = None;
+
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     gdt::init();
 
@@ -50,19 +55,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         boot_info.physical_memory_offset.into_option().unwrap(),
     );
 
-    // Create idle thread to initialize context switching
-    let idle_thread = task::build_thread(String::from("__idle"), || unsafe {
-        loop {
-            debug!("Idle...");
-            asm!("hlt");
-        }
-    });
-
     interrupts::init();
-
-    unsafe {
-        cpu::init_switch(&idle_thread);
-    }
 
     // First, set up basic graphics and a console to make sure we can print debug stuff
     if let bootloader::boot_info::Optional::None = boot_info.framebuffer {
@@ -101,6 +94,35 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         let shell = Box::new(BmShell::new());
         TERMINAL.as_mut().unwrap().launch_shell(shell);
     };
+
+    // Create idle thread to initialize context switching
+    let idle_thread = task::build_thread(String::from("__idle"), || unsafe {
+        loop {
+            debug!("Idle...");
+            asm!("hlt");
+        }
+    });
+
+    unsafe {
+        SCHEDULER = Some(Scheduler::new(Arc::new(idle_thread)));
+        SCHEDULER.as_mut().unwrap().add_task(task::build_thread(String::from("test"), || unsafe {
+            let mut counter = 0;
+            loop {
+                debug!("Other: {}", counter);
+                counter += 1;
+
+                if counter > 255 {
+                    // Make sure we end after a few iterations to test the cleanup procedure
+                    break;
+                }
+
+                asm!("hlt");
+            }
+        }));
+        SCHEDULER.as_ref().unwrap().init();
+    }
+
+    // From here, everything is done in threads. Check the __idle Thread for additional initialization steps.
 
     loop {
         x86_64::instructions::hlt();

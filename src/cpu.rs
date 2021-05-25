@@ -47,13 +47,13 @@ pub unsafe fn init_switch(init_thread: &Thread) {
     __init_switch(init_thread as *const Thread);
 }
 
-pub unsafe fn switch_context(previous_thread: &mut Thread, next_thread: &Thread) {
-    __switch_context(previous_thread as *mut Thread, next_thread);
+pub unsafe fn switch_context(previous_thread: &Thread, next_thread: &Thread) {
+    __switch_context(previous_thread as *const Thread, next_thread);
 }
 
 global_asm!(include_str!("asm/cpu.s"));
 
 extern "C" {
-    fn __switch_context(previous_thread: *mut Thread, next_thread: *const Thread);
+    fn __switch_context(previous_thread: *const Thread, next_thread: *const Thread);
     fn __init_switch(init_thread: *const Thread);
 }
