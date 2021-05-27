@@ -1,25 +1,27 @@
-use crate::cpu;
-use crate::debug;
-use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
-use crate::serial::SERIAL;
-use crate::{CONSOLE, TERMINAL, SCHEDULER};
-use bmos_std::io::IOChannel;
 use core::fmt::Write;
+use core::sync::atomic::{AtomicU8, Ordering};
+
 use lazy_static::lazy_static;
-use pc_keyboard::layouts::Us104Key;
 use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
+use pc_keyboard::layouts::Us104Key;
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-use core::sync::atomic::{AtomicU8, Ordering};
-use crate::task::Thread;
-use x86_64::instructions::interrupts::are_enabled;
+
+use bmos_std::io::IOChannel;
+
+use crate::{CONSOLE, SCHEDULER, TERMINAL};
+use crate::cpu;
+use crate::debug;
+use crate::gdt::DOUBLE_FAULT_IST_INDEX;
+use crate::keyboard::{KEYBOARD_REGISTRY, KeyEvent};
+use crate::serial::SERIAL;
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-const MAX_TICKS: u8 = 10;
+const MAX_TICKS: u8 = 5;
 
 pub static PICS: spin::Mutex<ChainedPics> =
     spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
@@ -30,7 +32,11 @@ lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
-        idt.double_fault.set_handler_fn(double_fault_handler);
+        unsafe {
+            idt.double_fault
+                .set_handler_fn(double_fault_handler)
+                .set_stack_index(DOUBLE_FAULT_IST_INDEX);
+        }
 
         // Handle timer interrupts
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
@@ -68,13 +74,11 @@ extern "x86-interrupt" fn timer_handler(_: InterruptStackFrame) {
             TICKS.store(0, Ordering::SeqCst);
             let next = SCHEDULER.as_mut().unwrap().pick_next();
 
+            PICS.lock()
+                .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+
             if let Some((current, next)) = next {
-                PICS.lock()
-                    .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
                 cpu::switch_context(&*current, &*next);
-            } else {
-                PICS.lock()
-                    .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
             }
         } else {
             let _ = TICKS.fetch_add(1, Ordering::SeqCst);
@@ -84,7 +88,7 @@ extern "x86-interrupt" fn timer_handler(_: InterruptStackFrame) {
     }
 }
 
-extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn syscall_handler(_: InterruptStackFrame) {
     let syscall_number = cpu::read_rax();
     match syscall_number {
         1 => {
@@ -92,14 +96,13 @@ extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) {
             let data_start = cpu::read_rdi() as *const u8;
             let length = cpu::read_rsi();
             let io_channel = IOChannel::from_u32(cpu::read_rdx() as u32).unwrap();
-            debug!(
+            /*debug!(
                 "Arguments: data_start = {:#?}, length = {}, io_channel = {:?}",
                 data_start, length, io_channel
-            );
+            );*/
 
             let data_slice = unsafe { core::slice::from_raw_parts(data_start, length as usize) };
             let string = core::str::from_utf8(data_slice);
-            debug!("String Result: {:?}", string);
 
             match io_channel {
                 IOChannel::Stdout => {
