@@ -1,8 +1,10 @@
 use alloc::collections::VecDeque;
-use crate::task::Thread;
 use alloc::sync::Arc;
-use crate::cpu;
+
 use x86_64::VirtAddr;
+
+use crate::cpu;
+use crate::task::Thread;
 
 pub struct Scheduler {
     current_task: Arc<Thread>,

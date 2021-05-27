@@ -8,19 +8,22 @@
 
 extern crate alloc;
 
-use crate::console::Console;
-use crate::keyboard::KEYBOARD_REGISTRY;
-use crate::terminal::Terminal;
 use alloc::boxed::Box;
-use bmos_shell::BmShell;
-use bootloader::{entry_point, BootInfo};
+use alloc::string::String;
+use alloc::sync::Arc;
 use core::panic::PanicInfo;
-use graphics::{Framebuffer, GraphicsSettings};
+
+use bootloader::{BootInfo, entry_point};
 use psf::Font;
 use spin::Mutex;
-use alloc::string::String;
+
+use bmos_shell::BmShell;
+use graphics::{Framebuffer, GraphicsSettings};
+
+use crate::console::Console;
+use crate::keyboard::KEYBOARD_REGISTRY;
 use crate::scheduler::Scheduler;
-use alloc::sync::Arc;
+use crate::terminal::Terminal;
 
 mod console;
 mod cpu;
@@ -54,8 +57,6 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         &boot_info.memory_regions,
         boot_info.physical_memory_offset.into_option().unwrap(),
     );
-
-    interrupts::init();
 
     // First, set up basic graphics and a console to make sure we can print debug stuff
     if let bootloader::boot_info::Optional::None = boot_info.framebuffer {
@@ -98,32 +99,19 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     // Create idle thread to initialize context switching
     let idle_thread = task::build_thread(String::from("__idle"), || unsafe {
         loop {
-            debug!("Idle...");
+            // TODO: Add cleanup stuff here
             asm!("hlt");
         }
     });
 
     unsafe {
         SCHEDULER = Some(Scheduler::new(Arc::new(idle_thread)));
-        SCHEDULER.as_mut().unwrap().add_task(task::build_thread(String::from("test"), || unsafe {
-            let mut counter = 0;
-            loop {
-                debug!("Other: {}", counter);
-                counter += 1;
+        interrupts::init();
 
-                if counter > 255 {
-                    // Make sure we end after a few iterations to test the cleanup procedure
-                    break;
-                }
-
-                asm!("hlt");
-            }
-        }));
         SCHEDULER.as_ref().unwrap().init();
     }
 
     // From here, everything is done in threads. Check the __idle Thread for additional initialization steps.
-
     loop {
         x86_64::instructions::hlt();
     }

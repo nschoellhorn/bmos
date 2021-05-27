@@ -1,10 +1,12 @@
-use crate::debug;
-use crate::graphics::{Framebuffer, GraphicsSettings};
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+
 use psf::Font;
 use spin::Mutex;
+
+use crate::debug;
+use crate::graphics::{Framebuffer, GraphicsSettings};
 
 // base color, simply white for now
 const BACKGROUND_COLOR: u32 = 0x000000;

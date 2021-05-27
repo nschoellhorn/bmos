@@ -1,5 +1,8 @@
 use alloc::vec::Vec;
+
 use bootloader::boot_info::FrameBuffer as BootFrameBuffer;
+
+use crate::debug;
 
 pub struct GraphicsSettings {
     pub width: u32,
@@ -54,6 +57,7 @@ impl Framebuffer {
         let mut back_buffer = Vec::with_capacity(fb_size);
         back_buffer.resize(fb_size, 0);
         let base_framebuffer_slice = fb.buffer_mut();
+        debug!("Framebuffer base address: {:x?}", base_framebuffer_slice.as_ptr());
         back_buffer.as_mut_slice()[..].copy_from_slice(base_framebuffer_slice);
 
         Self {

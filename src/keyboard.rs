@@ -1,4 +1,3 @@
-use crate::debug;
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
 
 type Handler<'a> = &'a (dyn KeyboardHandler + Send + Sync);

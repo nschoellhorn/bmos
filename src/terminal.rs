@@ -1,12 +1,15 @@
-use crate::console::{Console, Position};
-use crate::debug;
-use crate::keyboard::{KeyEvent, KeyboardHandler};
 use alloc::boxed::Box;
 use alloc::string::String;
-use bmos_shell::Shell;
 use core::cell::RefCell;
+
 use pc_keyboard::{DecodedKey, KeyCode, KeyState};
 use spin::{Mutex, RwLock};
+
+use bmos_shell::Shell;
+
+use crate::console::{Console, Position};
+use crate::debug;
+use crate::keyboard::{KeyboardHandler, KeyEvent};
 
 static PROMPT: &'static str = "bmos> ";
 
