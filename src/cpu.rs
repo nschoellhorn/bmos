@@ -1,4 +1,3 @@
-use x86_64::VirtAddr;
 use crate::task::Thread;
 
 pub fn read_rax() -> u64 {
@@ -48,10 +47,11 @@ pub unsafe fn init_switch(init_thread: &Thread) {
 }
 
 pub unsafe fn switch_context(previous_thread: &Thread, next_thread: &Thread) {
-    __switch_context(previous_thread as *const Thread, next_thread);
+    // Parameters are swapped intentionally, since I don't want to move them from one register to another before jumping into the thread entry point
+    __switch_context(next_thread, previous_thread);
 }
 
-global_asm!(include_str!("asm/cpu.s"));
+global_asm!(include_str!("asm/cpu.s"), options(att_syntax));
 
 extern "C" {
     fn __switch_context(previous_thread: *const Thread, next_thread: *const Thread);

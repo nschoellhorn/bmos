@@ -1,5 +1,3 @@
-.att_syntax prefix
-
 .section .text
 
 .global __switch_context
@@ -16,9 +14,6 @@ __switch_context:
     pushq %r15
     movq %rsp, (%rdi)
     movq (%rsi), %rsp
-    mov %cr0, %rax
-    or $8, %rax
-    mov %rax, %cr0
     popq %r15
     popq %r14
     popq %r13
@@ -26,15 +21,11 @@ __switch_context:
     popq %rbp
     popq %rbx
     popfq
-    movq %rsi, %rdi
     retq
 
 .align 16
 __init_switch:
     movq (%rdi), %rsp
-    mov %cr0, %rax
-    or $8, %rax
-    mov %rax, %cr0
     popq %r15
     popq %r14
     popq %r13
