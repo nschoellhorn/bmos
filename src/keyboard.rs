@@ -42,10 +42,9 @@ impl<'a> KeyboardEventRegistry<'a> {
     pub fn dispatch_event(&self, event: KeyEvent) {
         self.handlers
             .iter()
-            .enumerate()
-            .filter(|(_, handler)| handler.is_some())
-            .map(|(slot, handler_option)| (slot, handler_option.unwrap()))
-            .for_each(|(slot, handler)| handler.handle_key_event(event));
+            .filter(|handler| handler.is_some())
+            .map(|handler_option| handler_option.unwrap())
+            .for_each(|handler| handler.handle_key_event(event));
     }
 }
 

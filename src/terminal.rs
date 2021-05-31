@@ -9,7 +9,7 @@ use bmos_shell::Shell;
 
 use crate::console::{Console, Position};
 use crate::debug;
-use crate::keyboard::{KeyboardHandler, KeyEvent};
+use crate::keyboard::{KeyEvent, KeyboardHandler};
 
 static PROMPT: &'static str = "bmos> ";
 
@@ -134,7 +134,7 @@ impl<'a> Terminal<'a> {
     }
 
     fn set_cursor_position(&self, position: Position) {
-        let mut cursor = self.cursor.lock();
+        let cursor = self.cursor.lock();
         let mut mut_cursor = cursor.borrow_mut();
 
         mut_cursor.row = position.row;

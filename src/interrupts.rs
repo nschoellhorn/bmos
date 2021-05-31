@@ -2,8 +2,8 @@ use core::fmt::Write;
 use core::sync::atomic::{AtomicU8, Ordering};
 
 use lazy_static::lazy_static;
-use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
 use pc_keyboard::layouts::Us104Key;
+use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
@@ -11,12 +11,12 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 use bmos_std::io::IOChannel;
 
-use crate::{CONSOLE, SCHEDULER, TERMINAL};
 use crate::cpu;
 use crate::debug;
 use crate::gdt::DOUBLE_FAULT_IST_INDEX;
-use crate::keyboard::{KEYBOARD_REGISTRY, KeyEvent};
+use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
 use crate::serial::SERIAL;
+use crate::{CONSOLE, SCHEDULER, TERMINAL};
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
@@ -122,7 +122,7 @@ extern "x86-interrupt" fn syscall_handler(_: InterruptStackFrame) {
     debug!("SYSCALL: {}", syscall_number);
 }
 
-extern "x86-interrupt" fn keyboard_handler(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn keyboard_handler(_: InterruptStackFrame) {
     // SAFETY: The keyboard can't manipulate our memory.
     let scancode = unsafe { KEYBOARD_PORT.lock().read() };
 

@@ -13,7 +13,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use core::panic::PanicInfo;
 
-use bootloader::{BootInfo, entry_point};
+use bootloader::{entry_point, BootInfo};
 use psf::Font;
 use spin::Mutex;
 
@@ -32,10 +32,10 @@ mod graphics;
 mod interrupts;
 mod keyboard;
 mod memory;
-mod serial;
-mod terminal;
-mod task;
 mod scheduler;
+mod serial;
+mod task;
+mod terminal;
 
 const FONT: &'static [u8] = include_bytes!("../font.psf");
 
@@ -90,7 +90,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
         let registry = KEYBOARD_REGISTRY.as_mut().unwrap();
 
-        registry.register(TERMINAL.as_mut().unwrap());
+        // We can ignore the result safely, since the only possible error is "NoAvailableSlot", and that can't happen this early
+        let _ = registry.register(TERMINAL.as_mut().unwrap());
 
         let shell = Box::new(BmShell::new());
         TERMINAL.as_mut().unwrap().launch_shell(shell);

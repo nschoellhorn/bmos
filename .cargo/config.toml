@@ -1,5 +1,5 @@
 [alias]
-mkboot = "run --package=boot --target=aarch64-apple-darwin"
+mkboot = "run --package=boot --target=x86_64-unknown-linux-gnu"
 
 [build]
 target = "x86_64-bmos.json"

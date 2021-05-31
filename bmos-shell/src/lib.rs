@@ -11,8 +11,6 @@ use bmos_std::syscall::print;
 pub mod builtins;
 pub mod parser;
 
-fn main() {}
-
 pub trait Shell {
     fn process_input(&self, input: String);
 }

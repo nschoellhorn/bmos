@@ -36,9 +36,7 @@ impl Framebuffer {
     }
 
     pub fn clear(&mut self) {
-        unsafe {
-            self.back_buffer.as_mut_slice().fill(0);
-        }
+        self.back_buffer.as_mut_slice().fill(0);
     }
 
     pub fn flip(&mut self) {
@@ -57,7 +55,10 @@ impl Framebuffer {
         let mut back_buffer = Vec::with_capacity(fb_size);
         back_buffer.resize(fb_size, 0);
         let base_framebuffer_slice = fb.buffer_mut();
-        debug!("Framebuffer base address: {:x?}", base_framebuffer_slice.as_ptr());
+        debug!(
+            "Framebuffer base address: {:x?}",
+            base_framebuffer_slice.as_ptr()
+        );
         back_buffer.as_mut_slice()[..].copy_from_slice(base_framebuffer_slice);
 
         Self {

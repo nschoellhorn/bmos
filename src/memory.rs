@@ -1,17 +1,17 @@
 use bootloader::boot_info::{MemoryRegion, MemoryRegionKind, MemoryRegions};
 use linked_list_allocator::LockedHeap;
+use x86_64::structures::paging::page_table::PageTableFlags;
+use x86_64::structures::paging::FrameAllocator;
+use x86_64::structures::paging::{
+    page::{Page, Size4KiB},
+    PhysFrame,
+};
 use x86_64::{
     registers::control::Cr3,
     structures::paging::{OffsetPageTable, PageTable},
     VirtAddr,
 };
-use x86_64::{PhysAddr, structures::paging::mapper::Mapper};
-use x86_64::structures::paging::{
-    page::{Page, Size4KiB},
-    PhysFrame,
-};
-use x86_64::structures::paging::FrameAllocator;
-use x86_64::structures::paging::page_table::PageTableFlags;
+use x86_64::{structures::paging::mapper::Mapper, PhysAddr};
 
 use crate::debug;
 
@@ -69,7 +69,6 @@ pub fn init(memory: &MemoryRegions, memory_offset: u64) {
     debug!("Initializing global allocator.");
 
     let heap_start = HEAP_START as usize;
-    let heap_end = HEAP_START + HEAP_SIZE - 1;
     let heap_size = HEAP_SIZE as usize;
     unsafe {
         ALLOCATOR.lock().init(heap_start, heap_size);

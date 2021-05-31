@@ -8,7 +8,7 @@ pub fn main() {
 
     // new code below
 
-    let kernel_binary = Path::new("target/x86_64-bmos/debug/bmos")
+    let kernel_binary = Path::new("target/x86_64-bmos/release/bmos")
         .canonicalize()
         .unwrap();
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -27,7 +27,6 @@ pub fn main() {
 
     // pass the arguments
     build_cmd.env("RUST_BACKTRACE", "full");
-    build_cmd.env("TARGET", "x86_64-apple-darwin");
     build_cmd.arg("builder");
     build_cmd.arg("--kernel-manifest").arg(&kernel_manifest);
     build_cmd.arg("--kernel-binary").arg(&kernel_binary);

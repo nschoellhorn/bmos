@@ -27,7 +27,7 @@ impl ShellBuiltin for Echo {
 pub struct Something;
 
 impl ShellBuiltin for Something {
-    fn execute(&self, arguments: Vec<&str>) {
+    fn execute(&self, _: Vec<&str>) {
         kdebug!("SOMETHING!");
     }
 }
@@ -42,5 +42,3 @@ lazy_static! {
         builtins
     };
 }
-
-fn builtin_echo(arguments: Vec<&str>) {}

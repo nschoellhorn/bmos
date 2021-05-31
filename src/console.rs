@@ -187,7 +187,7 @@ impl<'a> Console<'a> {
 
     pub fn delete_char(&self, x: u32, y: u32) {
         let mut screen_buffer = self.screen_buffer.lock();
-        let mut current_row = screen_buffer.get_mut(y as usize).unwrap();
+        let current_row = screen_buffer.get_mut(y as usize).unwrap();
 
         current_row[x as usize] = None;
     }

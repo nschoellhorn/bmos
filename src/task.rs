@@ -2,11 +2,10 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use core::ffi::c_void;
 use core::mem::size_of;
-use core::ptr::write_bytes;
 
 use x86_64::VirtAddr;
 
-use crate::{debug, SCHEDULER};
+use crate::debug;
 
 // 4 KiB as the default thread stack size, divided by the size of u64, since that is what we put on the stack
 const THREAD_STACK_SIZE: usize = 4096 / size_of::<u64>();
@@ -22,7 +21,8 @@ pub struct Thread {
 }
 
 pub(crate) fn build_thread<F>(name: String, entry: F) -> Thread
-    where F: FnOnce() + 'static + Send
+where
+    F: FnOnce() + 'static + Send,
 {
     pub extern "C" fn thread_entry(thread: *mut Thread) -> ! {
         unsafe {
