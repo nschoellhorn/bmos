@@ -1,5 +1,6 @@
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
+use crate::debug;
 
 use x86_64::VirtAddr;
 
@@ -42,6 +43,8 @@ impl Scheduler {
             self.current_task = Arc::clone(&next);
 
             self.ready_queue.push_back(Arc::clone(&current));
+
+            //debug!("Current Thread: {}, Next Thread: {}", current.name.as_str(), next.name.as_str());
 
             return Some((current, next));
         }

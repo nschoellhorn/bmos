@@ -54,6 +54,6 @@ pub unsafe fn switch_context(previous_thread: &Thread, next_thread: &Thread) {
 global_asm!(include_str!("asm/cpu.s"), options(att_syntax));
 
 extern "C" {
-    fn __switch_context(previous_thread: *const Thread, next_thread: *const Thread);
+    fn __switch_context(next_thread: *const Thread, previous_thread: *const Thread);
     fn __init_switch(init_thread: *const Thread);
 }

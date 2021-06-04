@@ -27,6 +27,7 @@ use crate::terminal::Terminal;
 
 mod console;
 mod cpu;
+mod events;
 mod gdt;
 mod graphics;
 mod interrupts;
@@ -107,6 +108,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     unsafe {
         SCHEDULER = Some(Scheduler::new(Arc::new(idle_thread)));
+
+        events::init();
         interrupts::init();
 
         SCHEDULER.as_ref().unwrap().init();

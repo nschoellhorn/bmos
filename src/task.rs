@@ -1,23 +1,39 @@
 use alloc::boxed::Box;
+use alloc::format;
 use alloc::string::String;
 use core::ffi::c_void;
 use core::mem::size_of;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use x86_64::VirtAddr;
 
-use crate::debug;
+use crate::{debug, SCHEDULER};
 
 // 4 KiB as the default thread stack size, divided by the size of u64, since that is what we put on the stack
 const THREAD_STACK_SIZE: usize = 4096 / size_of::<u64>();
 const CALLEE_SAVED_REGISTERS: u64 = 6;
 const STACK_FRAME_ELEMENTS: u64 = 3;
 
+static THREAD_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 #[repr(C)]
 pub struct Thread {
     stack_pointer: VirtAddr,
     entry: Box<dyn FnOnce()>,
     pub(crate) stack: Box<[u64; THREAD_STACK_SIZE]>,
-    name: String,
+    pub(crate) name: String,
+}
+
+pub fn spawn_thread<F>(closure: F)
+where
+    F: FnOnce() + 'static + Send,
+{
+    let name = format!("thread{}", THREAD_COUNTER.fetch_add(1, Ordering::SeqCst));
+    let thread = build_thread(name, closure);
+
+    unsafe {
+        SCHEDULER.as_mut().unwrap().add_task(thread);
+    }
 }
 
 pub(crate) fn build_thread<F>(name: String, entry: F) -> Thread

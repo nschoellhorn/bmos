@@ -12,8 +12,8 @@ __switch_context:
     pushq %r13
     pushq %r14
     pushq %r15
-    movq %rsp, (%rdi)
-    movq (%rsi), %rsp
+    movq %rsp, (%rsi)
+    movq (%rdi), %rsp
     popq %r15
     popq %r14
     popq %r13

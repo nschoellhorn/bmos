@@ -6,9 +6,7 @@ pub fn main() {
     let bootloader_manifest = locate_bootloader("bootloader").unwrap();
     dbg!(&bootloader_manifest);
 
-    // new code below
-
-    let kernel_binary = Path::new("target/x86_64-bmos/release/bmos")
+    let kernel_binary = Path::new("target/x86_64-bmos/debug/bmos")
         .canonicalize()
         .unwrap();
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));

@@ -7,16 +7,19 @@ use pc_keyboard::{HandleControl, Keyboard, ScancodeSet1};
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use bmos_std::io::IOChannel;
 
 use crate::cpu;
 use crate::debug;
-use crate::gdt::DOUBLE_FAULT_IST_INDEX;
-use crate::keyboard::{KeyEvent, KEYBOARD_REGISTRY};
+use crate::events::SystemEvent;
+use crate::events::EVENT_QUEUE;
+use crate::gdt::{DOUBLE_FAULT_IST_INDEX, TIMER_IST_INDEX};
+use crate::keyboard::KeyEvent;
 use crate::serial::SERIAL;
 use crate::{CONSOLE, SCHEDULER, TERMINAL};
+use x86_64::instructions::interrupts::{without_interrupts, are_enabled};
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
@@ -32,14 +35,17 @@ lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
+        idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
+        idt.general_protection_fault.set_handler_fn(protection_fault_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
         unsafe {
             idt.double_fault
                 .set_handler_fn(double_fault_handler)
                 .set_stack_index(DOUBLE_FAULT_IST_INDEX);
         }
 
-        // Handle timer interrupts
-        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
+        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(__timer_interrupt_handler);
+        //idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_handler);
         idt[InterruptIndex::Syscall.as_usize()].set_handler_fn(syscall_handler);
 
@@ -68,7 +74,24 @@ impl InterruptIndex {
     }
 }
 
-extern "x86-interrupt" fn timer_handler(_: InterruptStackFrame) {
+extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, error_code: PageFaultErrorCode) {
+    panic!("Page Fault: {:?}, Error Code: {:?}", stack_frame, error_code);
+}
+
+extern "x86-interrupt" fn protection_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("General Protection Fault: {:?}, Error Code: {:?}", stack_frame, error_code);
+}
+
+extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: InterruptStackFrame) {
+    panic!("Invalid Opcode: {:?}", stack_frame);
+}
+
+extern "x86-interrupt" {
+    fn __timer_interrupt_handler(stack_frame: InterruptStackFrame);
+}
+
+#[no_mangle]
+extern "C" fn timer_handler(_: InterruptStackFrame) {
     unsafe {
         if TICKS.load(Ordering::SeqCst) == MAX_TICKS {
             TICKS.store(0, Ordering::SeqCst);
@@ -87,6 +110,8 @@ extern "x86-interrupt" fn timer_handler(_: InterruptStackFrame) {
         }
     }
 }
+
+global_asm!(include_str!("asm/interrupt.s"), options(att_syntax));
 
 extern "x86-interrupt" fn syscall_handler(_: InterruptStackFrame) {
     let syscall_number = cpu::read_rax();
@@ -123,31 +148,33 @@ extern "x86-interrupt" fn syscall_handler(_: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn keyboard_handler(_: InterruptStackFrame) {
-    // SAFETY: The keyboard can't manipulate our memory.
-    let scancode = unsafe { KEYBOARD_PORT.lock().read() };
+    without_interrupts(|| {
+        // SAFETY: The keyboard can't manipulate our memory.
+        let scancode = unsafe { KEYBOARD_PORT.lock().read() };
 
-    let mut keyboard = KEYBOARD.lock();
-    let (code, state, key) = match keyboard.add_byte(scancode) {
-        Ok(Some(event)) => (event.code, event.state, keyboard.process_keyevent(event)),
-        _ => {
-            unsafe {
-                PICS.lock()
-                    .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+        let mut keyboard = KEYBOARD.lock();
+        let (code, state, key) = match keyboard.add_byte(scancode) {
+            Ok(Some(event)) => (event.code, event.state, keyboard.process_keyevent(event)),
+            _ => {
+                unsafe {
+                    PICS.lock()
+                        .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+                }
+                return;
             }
-            return;
+        };
+
+        let event = KeyEvent::new(code, state, key);
+
+        unsafe {
+            EVENT_QUEUE
+                .lock()
+                .push_back(SystemEvent::KeyboardEvent(event));
+
+            PICS.lock()
+                .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
         }
-    };
-
-    let event = KeyEvent::new(code, state, key);
-
-    unsafe {
-        if let Some(registry) = &KEYBOARD_REGISTRY {
-            registry.dispatch_event(event);
-        }
-
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
-    }
+    });
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
