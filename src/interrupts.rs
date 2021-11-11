@@ -110,6 +110,7 @@ extern "x86-interrupt" fn syscall_handler(_: InterruptStackFrame) {
                     let console = unsafe { CONSOLE.as_ref().unwrap() };
 
                     console.print(string.unwrap(), cursor.column, cursor.row);
+                    console.redraw_screen(cursor);
                 }
                 IOChannel::Serial => {
                     let mut serial = SERIAL.lock();

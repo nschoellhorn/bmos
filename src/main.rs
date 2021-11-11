@@ -11,6 +11,8 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
+use bmos_std::io::IOChannel;
+use bmos_std::syscall::print;
 use core::panic::PanicInfo;
 
 use bootloader::{entry_point, BootInfo};
@@ -100,7 +102,6 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     // Create idle thread to initialize context switching
     let idle_thread = task::build_thread(String::from("__idle"), || unsafe {
         loop {
-            // TODO: Add cleanup stuff here
             asm!("hlt");
         }
     });
